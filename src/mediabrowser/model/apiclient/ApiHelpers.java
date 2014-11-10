@@ -15,6 +15,6 @@ public final class ApiHelpers
 			throw new IllegalArgumentException("name");
 		}
 
-		return name.replace('/', '-').replace('?', '-').replace('&', '-');
+		return name.replace('/', '-').replace('?', '-').replace('&', '-').replace(' ', '+');
 	}
 }
