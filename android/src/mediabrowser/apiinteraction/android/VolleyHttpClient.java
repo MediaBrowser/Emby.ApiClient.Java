@@ -1,15 +1,25 @@
 package mediabrowser.apiinteraction.android;
 
-import mediabrowser.apiinteraction.android.images.ImageCacheManager;
-import mediabrowser.apiinteraction.http.HttpRequest;
-import mediabrowser.apiinteraction.http.IAsyncHttpClient;
-import mediabrowser.apiinteraction.Response;
-import mediabrowser.model.logging.ILogger;
 import android.content.Context;
-import com.android.volley.*;
+import com.android.volley.DefaultRetryPolicy;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.ImageLoader;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
+import com.squareup.okhttp.OkHttpClient;
+import de.duenndns.ssl.MemorizingTrustManager;
+import mediabrowser.apiinteraction.Response;
+import mediabrowser.apiinteraction.android.images.ImageCacheManager;
+import mediabrowser.apiinteraction.http.HttpRequest;
+import mediabrowser.apiinteraction.http.IAsyncHttpClient;
+import mediabrowser.model.logging.ILogger;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.X509TrustManager;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 
 public class VolleyHttpClient implements IAsyncHttpClient {
 
@@ -41,10 +51,30 @@ public class VolleyHttpClient implements IAsyncHttpClient {
         // lazy initialize the request queue, the queue instance will be
         // created when it is accessed for the first time
         if (mRequestQueue == null) {
+            // register MemorizingTrustManager for HTTPS
+            try {
+                SSLContext sc;
+                sc = SSLContext.getInstance("TLS");
+                MemorizingTrustManager mtm = new MemorizingTrustManager(context);
+                sc.init(null, new X509TrustManager[]{mtm}, new java.security.SecureRandom());
 
-            mRequestQueue = Volley.newRequestQueue(context, new OkHttpStack());
-            //mRequestQueue = Volley.newRequestQueue(context, new HttpClientStack(new DefaultHttpClient()));
-            //mRequestQueue = Volley.newRequestQueue(context);
+                HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+                HttpsURLConnection.setDefaultHostnameVerifier(
+                        mtm.wrapHostnameVerifier(HttpsURLConnection.getDefaultHostnameVerifier()));
+
+                OkHttpClient okClient = new OkHttpClient();
+                okClient.setSslSocketFactory(sc.getSocketFactory());
+                OkHttpStack okStack = new OkHttpStack(okClient);
+
+                mRequestQueue = Volley.newRequestQueue(context, okStack);
+                //mRequestQueue = Volley.newRequestQueue(context, new HttpClientStack(new DefaultHttpClient()));
+                //mRequestQueue = Volley.newRequestQueue(context);
+            } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();
+                mRequestQueue = Volley.newRequestQueue(context, new OkHttpStack());
+            } catch (KeyManagementException e) {
+                e.printStackTrace();
+            }
         }
 
         return mRequestQueue;
@@ -86,14 +116,12 @@ public class VolleyHttpClient implements IAsyncHttpClient {
         }
     }
 
-    public void Send(final HttpRequest request, final Response<String> response)
-    {
+    public void Send(final HttpRequest request, final Response<String> response) {
         int method = Request.Method.GET;
 
-        if (request.getMethod() == "POST"){
+        if (request.getMethod() == "POST") {
             method = Request.Method.POST;
-        }
-        else if (request.getMethod() == "DELETE"){
+        } else if (request.getMethod() == "DELETE") {
             method = Request.Method.DELETE;
         }
 
