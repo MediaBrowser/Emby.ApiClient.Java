@@ -15,13 +15,6 @@ import android.os.IBinder;
  */
 public class AuthenticatorService extends Service {
 
-    // Constants
-    // The authority for the sync adapter's content provider
-    public static final String AUTHORITY = "emby.media";
-    // An account type, in the form of a domain name
-    private static final String ACCOUNT_TYPE = "emby.media";
-    // The account name
-    private static final String ACCOUNT_NAME = "sync";
     private Authenticator mAuthenticator;
 
     /**
@@ -30,15 +23,15 @@ public class AuthenticatorService extends Service {
      * @return Handle to application's account (not guaranteed to resolve unless CreateSyncAccount()
      *         has been called)
      */
-    public static Account GetAccount() {
+    public static Account GetAccount(SyncAccountInfo accountInfo) {
         // Note: Normally the account name is set to the user's identity (username or email
         // address). However, since we aren't actually using any user accounts, it makes more sense
         // to use a generic string in this case.
         //
         // This string should *not* be localized. If the user switches locale, we would not be
         // able to locate the old account, and may erroneously register multiple accounts.
-        final String accountName = ACCOUNT_NAME;
-        return new Account(accountName, ACCOUNT_TYPE);
+        final String accountName = accountInfo.accountName;
+        return new Account(accountName, accountInfo.accountType);
     }
 
     /**
@@ -46,17 +39,17 @@ public class AuthenticatorService extends Service {
      *
      * @param context Context
      */
-    public static void CreateSyncAccount(Context context) {
+    public static void CreateSyncAccount(Context context, SyncAccountInfo accountInfo) {
         boolean newAccount = false;
 
         // Create account, if it's missing. (Either first run, or user has deleted account.)
-        Account account = GetAccount();
+        Account account = GetAccount(accountInfo);
         AccountManager accountManager = (AccountManager) context.getSystemService(Context.ACCOUNT_SERVICE);
         if (accountManager.addAccountExplicitly(account, null, null)) {
             // Inform the system that this account supports sync
-            ContentResolver.setIsSyncable(account, AUTHORITY, 1);
+            ContentResolver.setIsSyncable(account, accountInfo.authority, 1);
             // Inform the system that this account is eligible for auto sync when the network is up
-            ContentResolver.setSyncAutomatically(account, AUTHORITY, true);
+            ContentResolver.setSyncAutomatically(account, accountInfo.authority, true);
 
             newAccount = true;
         }
