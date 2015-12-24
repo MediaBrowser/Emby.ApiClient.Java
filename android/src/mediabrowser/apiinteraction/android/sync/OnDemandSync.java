@@ -5,6 +5,8 @@ import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.os.Bundle;
+import android.text.TextUtils;
+import android.util.Log;
 
 public class OnDemandSync {
 
@@ -14,11 +16,16 @@ public class OnDemandSync {
         this.context = context;
     }
 
-    public void Run() {
+    public void Run(SyncAccountInfo accountInfo) {
 
-        AuthenticatorService.CreateSyncAccount(context);
+        if (!isAccountInfoValid(accountInfo)) {
+            Log.d("OnDemandSync", "Error creating OnDemandSync: AccountInfo is incomplete");
+            return;
+        }
 
-        Account account = AuthenticatorService.GetAccount();
+        AuthenticatorService.CreateSyncAccount(context, accountInfo);
+
+        Account account = AuthenticatorService.GetAccount(accountInfo);
 
         // Pass the settings flags by inserting them in a bundle
         Bundle settingsBundle = new Bundle();
@@ -30,6 +37,13 @@ public class OnDemandSync {
          * Request the sync for the default account, authority, and
          * manual sync settings
          */
-        ContentResolver.requestSync(account, AuthenticatorService.AUTHORITY, settingsBundle);
+        ContentResolver.requestSync(account, accountInfo.authority, settingsBundle);
+    }
+
+    private boolean isAccountInfoValid(SyncAccountInfo accountInfo) {
+        return accountInfo != null
+                && !TextUtils.isEmpty(accountInfo.authority)
+                && !TextUtils.isEmpty(accountInfo.accountName)
+                && !TextUtils.isEmpty(accountInfo.accountType);
     }
 }
